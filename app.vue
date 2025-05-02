@@ -334,7 +334,7 @@ watch(
         <div class="text-5xl mt-10">{{ currentEvent.title }}</div>
         <div class="text-2xl mt-10 h-[290px] line-clamp-9 overflow-hidden">{{ currentEvent.description }}</div>
         <!-- <div class="text-2xl mt-10 h-[290px]">{{ currentEvent.initialDescription }}</div> -->
-        <div class="text-7xl mt-10">Organiser Information</div>
+        <div class="text-7xl mt-10">Organizer Information</div>
         <div class="text-4xl mt-10" v-if="currentEvent.address">{{ currentEvent.address }}</div>
         <div class="text-4xl mt-10" v-if="currentEvent.contactName">{{ currentEvent.contactName }}</div>
         <div class="text-2xl" v-if="currentEvent.phone">{{ currentEvent.phone }}</div>
