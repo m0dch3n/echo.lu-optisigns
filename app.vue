@@ -17,7 +17,6 @@ async function fetchEchoData(query: LocationQuery) {
   const apiKey = query['api-key'] as string;
 
   if (!apiKey) {
-    error.value = 'API key is required';
     return [];
   }
 
