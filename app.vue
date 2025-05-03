@@ -245,7 +245,9 @@ async function fetchEchoData(query: LocationQuery) {
     }
   }).sort((a: any, b: any) => {
     return a.date.getTime() - b.date.getTime();
-  });;
+  }).filter((event: any) => {
+    return event.absoluteImageUrl !== '';
+  });
 }
 
 const events = computedAsync(
