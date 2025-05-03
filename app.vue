@@ -324,7 +324,7 @@ watch(
       </div>
       <div class="mx-auto relative">
         <img src="/header.png" alt="Mir sin uewen" />
-        <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="Event QR Code" class="absolute top-10 right-10 w-48 h-48" />
+        <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="Event QR Code" class="absolute top-8 right-4 w-64 h-64" />
       </div>
       <div class="mx-auto mt-10 px-10 h-[500px]">
         <img v-if="currentEvent.absoluteImageUrl" :src="currentEvent.absoluteImageUrl" alt="Event image"
