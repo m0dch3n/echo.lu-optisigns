@@ -4,14 +4,29 @@ import QRCode from 'qrcode';
 import { format, parseISO, setDay, addWeeks, isBefore } from 'date-fns';
 import type { LocationQuery } from 'vue-router';
 
-
-const error = ref("");
+type Event = {
+  id: string;
+  url: string;
+  title: string;
+  description: string;
+  date: Date;
+  dateString: string;
+  address: string;
+  imageUrl: string;
+  absoluteImageUrl: string;
+  initialDescription: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  record: any; // The raw record data from the API
+};
 
 const route = useRoute();
 const query = route.query;
 
 // Shared function to fetch data from echo.lu API
-async function fetchEchoData(query: LocationQuery) {
+async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
   let url = 'https://api.echo.lu/v1/allExperiences';
 
   const apiKey = query['api-key'] as string;
@@ -20,13 +35,11 @@ async function fetchEchoData(query: LocationQuery) {
     return [];
   }
 
-  // Create new query parameters without timeRange but with from/to dates
   const params = new URLSearchParams();
 
-  // Handle timeRange parameter
+  // Handle timeRange parameter, translate it to from/to dates
   const timeRange = query.timeRange as string;
   if (timeRange) {
-    console.log(timeRange)
     const now = new Date();
     let fromDate = new Date();
     let toDate = new Date();
@@ -74,9 +87,12 @@ async function fetchEchoData(query: LocationQuery) {
     params.set('date[from]', fromDate.toISOString().split('.')[0] + 'Z');
     params.set('date[to]', toDate.toISOString().split('.')[0] + 'Z');
   }
-  // Add all other query parameters except api-key and timeRange
+
+  // Add all other query parameters except api-key, timeRange, interval, currentIndex
+  // they serve us for internal usage
+  const toIgnore = ['api-key', 'timeRange', 'interval', 'currentIndex', 'raw'];
   Object.entries(query).forEach(([key, value]) => {
-    if (key !== 'api-key' && key !== 'timeRange' && key !== 'interval') {
+    if (!toIgnore.includes(key)) {
       if (Array.isArray(value)) {
         value.forEach(v => params.append(key, v as string));
       } else if (typeof value === 'string' && value.startsWith('[') && value.endsWith(']')) {
@@ -88,20 +104,24 @@ async function fetchEchoData(query: LocationQuery) {
     }
   });
 
+  // construct the url with the query params
   if (params.toString()) {
     url += '?' + params.toString();
   }
 
-
+  // pass the api key from the query params
   const options = {
     method: 'GET',
     headers: { 'api-key': apiKey, Accept: 'application/json' }
   };
 
+  // fetch the data with the query params
   const response = await fetch(url, options);
   const data = await response.json();
 
+  // map the data records to the events
   return data.records.map((record: any) => {
+    // get date information from the record
     const dateFrom = record.dates[0]?.from
       ? new Date(record.dates[0].from)
       : new Date();
@@ -115,8 +135,8 @@ async function fetchEchoData(query: LocationQuery) {
     let dateString;
     let date;
 
+    // handle recurring events with opening hours
     if (openingHours) {
-      // Handle recurring events with opening hours
       const now = new Date();
       const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       let nextDate = null;
@@ -152,6 +172,7 @@ async function fetchEchoData(query: LocationQuery) {
         }
       }
 
+      // if we have a valid next date and time, format the date string
       if (nextDate && nextTime) {
         const dayFormatted = format(nextDate, 'EEEE');
         const dateFormatted = format(nextDate, 'dd/MM/yyyy');
@@ -165,7 +186,7 @@ async function fetchEchoData(query: LocationQuery) {
         date = dateFrom;
       }
     } else {
-      // Original date formatting logic for non-recurring events
+      // Date formatting for non-recurring events
       const timeDiff = dateTo.getTime() - dateFrom.getTime();
       const moreThan24Hours = timeDiff > 24 * 60 * 60 * 1000;
 
@@ -175,6 +196,8 @@ async function fetchEchoData(query: LocationQuery) {
       const startTime = format(dateFrom, 'HH:mm');
       const endTime = format(dateTo, 'HH:mm');
 
+      // if the event is more than 24 hours, show the start and end date
+      // otherwise show the start date and time
       dateString = moreThan24Hours
         ? `From ${startDate} to ${endDate}`
         : startDate === endDate
@@ -196,10 +219,12 @@ async function fetchEchoData(query: LocationQuery) {
     const email = salesContact?.email;
     const website = salesContact?.website;
 
+    // prefer the english description
     const initialDescription = record.description.en || record.description.fr || record.description.de || '';
 
     let rawDescription = initialDescription;
 
+    // remove the style tags
     rawDescription = rawDescription.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
 
     // Extract text between <p> tags using regex
@@ -241,11 +266,14 @@ async function fetchEchoData(query: LocationQuery) {
       contactName,
       phone,
       email,
-      website
+      website,
+      record
     }
+    // sort the events by date ascending
   }).sort((a: any, b: any) => {
     return a.date.getTime() - b.date.getTime();
   }).filter((event: any) => {
+    // filter out events without an image
     return event.absoluteImageUrl !== '';
   });
 }
@@ -255,7 +283,7 @@ const events = computedAsync(
   [], // initial state
 )
 
-const currentIndex = ref(0);
+const currentIndex = ref(query.currentIndex ? parseInt(query.currentIndex as string) : 0);
 
 const currentEvent = computed(() => events.value?.[currentIndex.value % events.value.length] ?? null);
 
@@ -280,9 +308,11 @@ const preloadImage = (url: string) => {
 };
 
 onMounted(() => {
+  // if the interval is set from the query params, use it, otherwise use 15 seconds
   setInterval(nextEvent, query.interval ? parseInt(query.interval as string) * 1000 : 15000);
 });
 
+// handle left and right arrow key events
 const onKeyDown = (e: KeyboardEvent) => {
   if (e.key === 'ArrowRight') {
     nextEvent();
@@ -299,51 +329,53 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown);
 });
 
-const qrCodeUrl = ref<string>('');
-
-// Watch for changes in the website URL and generate QR code
-watch(
-  () => currentEvent.value?.url,
-  async (url) => {
-    if (url) {
-      qrCodeUrl.value = await QRCode.toDataURL(url);
-    } else {
-      qrCodeUrl.value = '';
-    }
-  },
-  { immediate: true }
+// generate the QR code url
+const qrCodeUrl = computedAsync(
+  () => QRCode.toDataURL(currentEvent.value?.url ?? ''),
+  undefined,
 );
+
+const showRaw = ref(query.raw === 'true');
 
 </script>
 <template>
-  <div class="min-h-screen w-full flex items-center justify-center bg-black text-white relative">
-    <div v-if="currentEvent" class="max-w-[1080px] aspect-9/16 flex flex-col overflow-hidden relative">
-      <div class="absolute bottom-2 right-2 flex items-center gap-2">
-        <div>Source:</div>
-        <img src="/echolu.png" alt="Echo.lu Website" class="w-10 h-10" />
-      </div>
-      <div class="mx-auto relative">
-        <img src="/header.png" alt="Mir sin uewen" />
-        <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="Event QR Code" class="absolute top-8 right-4 w-64 h-64" />
-      </div>
-      <div class="mx-auto mt-10 px-10 h-[500px]">
-        <img v-if="currentEvent.absoluteImageUrl" :src="currentEvent.absoluteImageUrl" alt="Event image"
-          class="max-h-[500px]" />
-        <div v-else class="h-[500px]"></div>
-      </div>
-      <div class="h-full w-full mx-auto mt-10 flex flex-col overflow-hidden p-10">
-        <div class="text-7xl">{{ currentEvent.dateString }}</div>
-        <div class="text-5xl mt-10">{{ currentEvent.title }}</div>
-        <div class="text-2xl mt-10 h-[290px] line-clamp-9 overflow-hidden">{{ currentEvent.description }}</div>
-        <!-- <div class="text-2xl mt-10 h-[290px]">{{ currentEvent.initialDescription }}</div> -->
-        <div class="text-7xl mt-10">Organizer Information</div>
-        <div class="text-4xl mt-10" v-if="currentEvent.address">{{ currentEvent.address }}</div>
-        <div class="text-4xl mt-10" v-if="currentEvent.contactName">{{ currentEvent.contactName }}</div>
-        <div class="text-2xl" v-if="currentEvent.phone">{{ currentEvent.phone }}</div>
-        <div class="text-2xl" v-if="currentEvent.email">{{ currentEvent.email }}</div>
-        <div class="text-2xl" v-if="currentEvent.website">{{ currentEvent.website }}</div>
-      </div>
-    </div>
-    <div v-else class="text-red-500 text-7xl">{{ error }}</div>
+  <div
+    class="min-h-screen w-full flex items-center justify-center bg-black text-white relative overflow-hidden overscroll-none">
+    <template v-if="currentEvent">
+      <template v-if="showRaw">
+        <pre class="w-full h-full overflow-scroll">{{ currentIndex }}/{{ events.length - 1 }}
+{{ currentEvent.record }}
+        </pre>
+      </template>
+      <template v-else>
+        <div class="max-w-[1080px] aspect-9/16 flex flex-col overflow-hidden relative">
+          <div class="absolute bottom-2 right-2 flex items-center gap-2">
+            <div>Source:</div>
+            <img src="/echolu.png" alt="Echo.lu Website" class="w-10 h-10" />
+          </div>
+          <div class="mx-auto relative">
+            <img src="/header.png" alt="Mir sin uewen" />
+            <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="Event QR Code" class="absolute top-8 right-4 w-64 h-64" />
+          </div>
+          <div class="mx-auto mt-10 px-10 h-[500px]">
+            <img v-if="currentEvent.absoluteImageUrl" :src="currentEvent.absoluteImageUrl" alt="Event image"
+              class="max-h-[500px]" />
+            <div v-else class="h-[500px]"></div>
+          </div>
+          <div class="h-full w-full mx-auto mt-10 flex flex-col overflow-hidden p-10">
+            <div class="text-7xl">{{ currentEvent.dateString }}</div>
+            <div class="text-5xl mt-10">{{ currentEvent.title }}</div>
+            <div class="text-2xl mt-10 h-[290px] line-clamp-9 overflow-hidden">{{ currentEvent.description }}</div>
+            <!-- <div class="text-2xl mt-10 h-[290px]">{{ currentEvent.initialDescription }}</div> -->
+            <div class="text-7xl mt-10">Organizer Information</div>
+            <div class="text-4xl mt-10" v-if="currentEvent.address">{{ currentEvent.address }}</div>
+            <div class="text-4xl mt-10" v-if="currentEvent.contactName">{{ currentEvent.contactName }}</div>
+            <div class="text-2xl" v-if="currentEvent.phone">{{ currentEvent.phone }}</div>
+            <div class="text-2xl" v-if="currentEvent.email">{{ currentEvent.email }}</div>
+            <div class="text-2xl" v-if="currentEvent.website">{{ currentEvent.website }}</div>
+          </div>
+        </div>
+      </template>
+    </template>
   </div>
 </template>
