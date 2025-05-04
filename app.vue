@@ -136,8 +136,8 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
     } 
 
     if (!dateFrom || !dateTo) {
-      dateFrom = new Date();
-      dateTo = new Date();
+      dateFrom = now;
+      dateTo = now;
       openingHours = null;
     }
 
