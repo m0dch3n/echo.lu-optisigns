@@ -121,23 +121,27 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
 
   // map the data records to the events
   return data.records.map((record: any) => {
+    const now = new Date();
+    
     // get date information from the record
-    const dateFrom = record.dates[0]?.from
-      ? new Date(record.dates[0].from)
-      : new Date();
+    let dateFrom, dateTo, openingHours;
 
-    const dateTo = record.dates[0]?.to
-      ? new Date(record.dates[0].to)
-      : new Date();
-
-    const openingHours = record.dates[0]?.openingHours;
+    if (record.dates.length > 0) {
+      for (const dateObject of record.dates) {
+        dateFrom = new Date(dateObject.from);
+        dateTo = new Date(dateObject.to);
+        openingHours = dateObject.openingHours;
+        if (dateFrom >= now || record.dates.length === 1) {
+          break;
+        }
+      }
+    }
 
     let dateString;
     let date;
 
     // handle recurring events with opening hours
     if (openingHours) {
-      const now = new Date();
       const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       let nextDate = null;
       let nextTime = null;
