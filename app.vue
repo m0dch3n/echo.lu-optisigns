@@ -122,18 +122,16 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
   // map the data records to the events
   return data.records.map((record: any) => {
     const now = new Date();
-    
+
     // get date information from the record
     let dateFrom, dateTo, openingHours;
 
-    if (record.dates.length > 0) {
-      for (const dateObject of record.dates) {
-        dateFrom = new Date(dateObject.from);
-        dateTo = new Date(dateObject.to);
-        openingHours = dateObject.openingHours;
-        if (dateFrom >= now || record.dates.length === 1) {
-          break;
-        }
+    for (const dateObject of record.dates) {
+      dateFrom = new Date(dateObject.from);
+      dateTo = new Date(dateObject.to);
+      openingHours = dateObject.openingHours;
+      if (dateFrom >= now || record.dates.length === 1) {
+        break;
       }
     }
 
