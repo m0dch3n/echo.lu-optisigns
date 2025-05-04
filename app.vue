@@ -133,6 +133,12 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
       if (dateFrom >= now || record.dates.length === 1) {
         break;
       }
+    } 
+
+    if (!dateFrom || !dateTo) {
+      dateFrom = new Date();
+      dateTo = new Date();
+      openingHours = null;
     }
 
     let dateString;
