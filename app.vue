@@ -94,7 +94,7 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
 
   // Add all other query parameters except api-key, timeRange, interval, currentIndex
   // they serve us for internal usage
-  const toIgnore = ['api-key', 'timeRange', 'interval', 'currentIndex', 'raw'];
+  const toIgnore = ['api-key', 'timeRange', 'interval', 'currentIndex', 'raw', 'lang'];
   Object.entries(query).forEach(([key, value]) => {
     if (!toIgnore.includes(key)) {
       if (Array.isArray(value)) {
