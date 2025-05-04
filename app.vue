@@ -2,9 +2,11 @@
 import { computedAsync } from '@vueuse/core';
 import QRCode from 'qrcode';
 import { format, parseISO, setDay, addWeeks, isBefore } from 'date-fns';
+import { fr, de, enUS } from 'date-fns/locale';
 import type { LocationQuery } from 'vue-router';
 
 type Event = {
+  /// <reference types="./node_modules/.vue-global-types/vue_3.5_0_0_0.d.ts" />
   id: string;
   url: string;
   title: string;
@@ -20,6 +22,8 @@ type Event = {
   email?: string;
   website?: string;
   record: any; // The raw record data from the API
+  upcomingEvents?: string;
+  organizerInformation?: string;
 };
 
 const route = useRoute();
@@ -119,6 +123,14 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
   const response = await fetch(url, options);
   const data = await response.json();
 
+  const lang = query.lang as string || 'fr';
+  
+  const locales = {
+    fr: fr,
+    de: de,
+    en: enUS
+  };
+
   // map the data records to the events
   return data.records.map((record: any) => {
     const now = new Date();
@@ -182,7 +194,7 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
 
       // if we have a valid next date and time, format the date string
       if (nextDate && nextTime) {
-        const dayFormatted = format(nextDate, 'EEEE');
+        const dayFormatted = format(nextDate, 'EEEE', { locale: locales[lang as keyof typeof locales] });
         const dateFormatted = format(nextDate, 'dd/MM/yyyy');
         dateString = `${dayFormatted}, ${dateFormatted}, ${nextTime}`;
         date = nextDate;
@@ -198,7 +210,7 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
       const timeDiff = dateTo.getTime() - dateFrom.getTime();
       const moreThan24Hours = timeDiff > 24 * 60 * 60 * 1000;
 
-      const day = format(dateFrom, 'EEEE');
+      const day = format(dateFrom, 'EEEE', { locale: locales[lang as keyof typeof locales] });
       const startDate = format(dateFrom, 'dd/MM/yyyy');
       const endDate = format(dateTo, 'dd/MM/yyyy');
       const startTime = format(dateFrom, 'HH:mm');
@@ -217,10 +229,29 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
     const id = record.id;
     const venue = record.venues[0];
     const addr = venue?.location?.address;
-    const address = addr?.number + ' ' + addr?.street + ', ' + addr?.postcode + ' ' + addr?.town;
+    const number = addr?.number ?? '';
+    const street = addr?.street ?? '';
+    const postcode = addr?.postcode ?? '';
+    const town = addr?.town ?? '';
+    const address = number + ' ' + street + ', ' + postcode + ' ' + town;
     const imageUrl = record.pictures[0]?.previews?.media?.url || '';
-    const title = record.title.en || record.title.fr || record.title.de || 'Event';
+    const title = record.title[lang] || record.title.fr || record.title.de || record.title.en || 'Événement';
 
+    const upcomingEventsTranslation = {
+      fr: 'Événements à venir',
+      de: 'Kommende Ereignisse',
+      en: 'Upcoming Events',
+    };
+
+    const organizerTranslation = {
+      fr: 'Informations sur l\'organisateur',
+      de: 'Infos zum Organisator',
+      en: 'Organizer Information',
+    };
+
+    const upcomingEvents = upcomingEventsTranslation[lang as keyof typeof upcomingEventsTranslation];
+    const organizerInformation = organizerTranslation[lang as keyof typeof organizerTranslation];
+    
     const salesContact = record.salesContact;
     const contactName = salesContact?.name;
     const phone = salesContact?.phone;
@@ -228,7 +259,7 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
     const website = salesContact?.website;
 
     // prefer the english description
-    const initialDescription = record.description.en || record.description.fr || record.description.de || '';
+    const initialDescription = record.description[lang] || record.description.fr || record.description.de || record.description.en || '';
 
     let rawDescription = initialDescription;
 
@@ -275,7 +306,9 @@ async function fetchEchoData(query: LocationQuery): Promise<Event[]> {
       phone,
       email,
       website,
-      record
+      record,
+      upcomingEvents,
+      organizerInformation
     }
     // sort the events by date ascending
   }).sort((a: any, b: any) => {
@@ -364,6 +397,7 @@ const showRaw = ref(query.raw === 'true');
           <div class="mx-auto relative">
             <img src="/header.png" alt="Mir sin uewen" />
             <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="Event QR Code" class="absolute top-8 right-4 w-64 h-64" />
+            <div class="absolute top-8 right-4 w-64 h-64" >{{ currentEvent.upcomingEvents }}</div>
           </div>
           <div class="mx-auto mt-10 px-10 h-[500px]">
             <img v-if="currentEvent.absoluteImageUrl" :src="currentEvent.absoluteImageUrl" alt="Event image"
@@ -375,7 +409,7 @@ const showRaw = ref(query.raw === 'true');
             <div class="text-5xl mt-10">{{ currentEvent.title }}</div>
             <div class="text-2xl mt-10 h-[290px] line-clamp-9 overflow-hidden">{{ currentEvent.description }}</div>
             <!-- <div class="text-2xl mt-10 h-[290px]">{{ currentEvent.initialDescription }}</div> -->
-            <div class="text-7xl mt-10">Organizer Information</div>
+            <div class="text-7xl mt-10">{{ currentEvent.organizerInformation}}</div>
             <div class="text-4xl mt-10" v-if="currentEvent.address">{{ currentEvent.address }}</div>
             <div class="text-4xl mt-10" v-if="currentEvent.contactName">{{ currentEvent.contactName }}</div>
             <div class="text-2xl" v-if="currentEvent.phone">{{ currentEvent.phone }}</div>
