@@ -396,7 +396,7 @@ const showRaw = ref(query.raw === 'true');
           <div class="mx-auto relative">
             <img src="/header.png" alt="Mir sin uewen" />
             <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="Event QR Code" class="absolute top-8 right-4 w-64 h-64" />
-            <div class="absolute top-8 right-4 w-64 h-64" >{{ currentEvent.upcomingEvents }}</div>
+            <div class="absolute text-black text-6xl font-bold z-10 top-74 left-1/2 -translate-x-1/2 -translate-y-1/2  w-full text-center" >{{ currentEvent.upcomingEvents }}</div>
           </div>
           <div class="mx-auto mt-10 px-10 h-[500px]">
             <img v-if="currentEvent.absoluteImageUrl" :src="currentEvent.absoluteImageUrl" alt="Event image"
