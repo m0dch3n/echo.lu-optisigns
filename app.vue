@@ -6,7 +6,6 @@ import { fr, de, enUS } from 'date-fns/locale';
 import type { LocationQuery } from 'vue-router';
 
 type Event = {
-  /// <reference types="./node_modules/.vue-global-types/vue_3.5_0_0_0.d.ts" />
   id: string;
   url: string;
   title: string;
